@@ -16,21 +16,7 @@
 #pragma pack(push, 0)
 
 // TBD: Replace with proper interrupt pin macros. It does not seem to be defined for atmega328p or I am incapable of finding it
-#ifndef INT0_PIN
-#ifdef __AVR_ATmega328P__
-#define INT0_PIN 2
-#else
-  #warning Define INT0_PIN for this microcontroller to use interrupt
-#endif
-#endif
 
-#ifndef INT1_PIN 
-#ifdef __AVR_ATmega328P__
-#define INT1_PIN 3
-#else
-  #warning Define INT1_PIN for this microcontroller to use interrupt
-#endif
-#endif
 
 uint32_t g_intCount = 0;
 
@@ -47,14 +33,6 @@ class CTtP229TouchButton
     uint16_t  SclPin : 6;
     uint16_t  SdoPin : 6;
     uint16_t  Is16Button : 1;
-#if defined(INT0_PIN) || defined(INT1_PIN)
-    uint16_t  HasPendingInterrupt : 1;
-    uint16_t  IgnoreNextEvent : 1;            // When reading 16th key and if it is pressed, SDO stays low for 2ms.
-                                              // If we enable interrupt before that, then it will trigger after 2ms, only to find the same condition.
-                                              // To make things worse, at the end of reading the pin will stay low and generate another interrupt.
-                                              // TBD: One possible fix is to send more pulses to make it roll over to HIGH. Have to find out if all 16 keys can be pressed in multi-key scenario (NOT supported yet).    
-    uint16_t UnhandledButtonPresses;
-#endif
     uint16_t PreviousButtonValue;
   };
   
@@ -94,60 +72,7 @@ class CTtP229TouchButton
     return buttonsPressed;
   }
   
-#if defined(INT0_PIN) || defined(INT1_PIN)
-  // Detaching the interrupt after receiving the data can cause problem in sleeping. If the interrupt is not properly dispatched, it can lead to permanent sleep and can't wake up from button
-  static void HandleButtonEvent()
-  {
-    if( g_prop.IgnoreNextEvent )
-    {
-      // We ignored an event. Now we will accept the event
-      g_prop.IgnoreNextEvent = false;
-    }
-    else
-    {
-      g_prop.HasPendingInterrupt = true;
-      g_intCount++;
-    }
-  }
-  
-  static void SetInterruptHandler()
-  {
-#ifdef INT0_PIN    
-    if( INT0_PIN == g_prop.SdoPin ) 
-    {
-      DEBUG_BUTTON16(Serial.println("Configure : With interrupt 0"));
-      EIFR = 0x01; // Clear INTF0 flag
-      attachInterrupt(0, HandleButtonEvent, RISING); // The pin goes down for 93us and then raises that is when the device is ready (technically after 10us)      
-    }
-#endif 
 
-#ifdef INT1_PIN    
-    if( INT1_PIN == g_prop.SdoPin ) 
-    {
-      DEBUG_BUTTON16(Serial.println("Configure : With interrupt 1"));
-      EIFR = 0x02; // Clear INTF1 flag
-      attachInterrupt(1, HandleButtonEvent, RISING); // The pin goes down for 93us and then raises that is when the device is ready (technically after 10us)      
-    }
-#endif 
-  }
-  
-  static void RemoveInterruptHandler()
-  {
-#ifdef INT0_PIN
-    if( INT0_PIN == g_prop.SdoPin ) 
-    {
-      detachInterrupt(0);
-    }
-#endif
-
-#ifdef INT1_PIN 
-    if( INT1_PIN == g_prop.SdoPin ) 
-    {
-      detachInterrupt(1);
-    }
-#endif
-  }
-#endif
 
   //
   //    Returns button number being pressed. High bit indicates more changes present
@@ -205,12 +130,6 @@ class CTtP229TouchButton
     DEBUG_BUTTON16(Serial.print("Number of Keys : "));
     DEBUG_BUTTON16(Serial.println(is16Button ? 16 : 8));
 
-#if defined(INT0_PIN) || defined(INT1_PIN)
-    g_prop.UnhandledButtonPresses = 0;
-    g_prop.HasPendingInterrupt = false;
-    g_prop.IgnoreNextEvent = false;
-    SetInterruptHandler();
-#endif
 
     DEBUG_BUTTON16(Serial.println("Configure : Exit"));
   }
@@ -222,16 +141,10 @@ class CTtP229TouchButton
   //
   static uint16_t GetButtonStatus()
   {
-#if defined(INT0_PIN) || defined(INT1_PIN)
-    g_prop.HasPendingInterrupt = 0;
-#endif
 
     uint16_t returnValue = GetPressedButton();
     
-#if defined(INT0_PIN) || defined(INT1_PIN)
-    returnValue |= g_prop.UnhandledButtonPresses;    // and also include any data that was received that we have not sent yet.
-    g_prop.UnhandledButtonPresses = 0;
-#endif
+
 
     g_prop.PreviousButtonValue = returnValue;
 
@@ -254,37 +167,10 @@ class CTtP229TouchButton
     DEBUG_BUTTON16(Serial.println(g_prop.PreviousButtonValue));
 
 
-#if defined(INT0_PIN) || defined(INT1_PIN)
-    if(
-#if defined(INT0_PIN)
-    INT0_PIN == g_prop.SdoPin 
-#endif
-#if defined(INT0_PIN) && defined(INT1_PIN)
-    ||
-#endif
-#if defined(INT1_PIN)
-    INT1_PIN == g_prop.SdoPin 
-#endif
-    ) 
-    {
-      // Interrupts are used. Check if we have interrupt
-      if( g_prop.HasPendingInterrupt )
-      {
-        RemoveInterruptHandler();                 // From this point upto SetInterruptHandler is called, ensure there is no return path that will leave without SetInterruptHandler
-      }
-      else
-      {
-        DEBUG_BUTTON16(Serial.println("GetButtonEvent: No interrupt pending"));
-        return returnValue;
-      }
-    }
-#endif
+
 
     uint16_t currValue = GetPressedButton();
 
-#if defined(INT0_PIN) || defined(INT1_PIN)
-    currValue |= g_prop.UnhandledButtonPresses; // Get any previously returned but not returned now values also into the mix
-#endif
 
     uint16_t changes = g_prop.PreviousButtonValue ^ currValue;
     uint16_t pressed = (changes & currValue);
@@ -300,10 +186,7 @@ class CTtP229TouchButton
       // set the new notified button into prev
       g_prop.PreviousButtonValue |= mask;
       
-#if defined(INT0_PIN) || defined(INT1_PIN)
-      g_prop.UnhandledButtonPresses = currValue;
-      g_prop.UnhandledButtonPresses = currValue & ~g_prop.PreviousButtonValue;    // clear unhandled for this bit, just in case
-#endif
+
     }
     else if(0 != released)
     {
@@ -315,69 +198,9 @@ class CTtP229TouchButton
       
       // clear the notified release button
       g_prop.PreviousButtonValue &= ~(1 << (returnValue.ButtonNumber -1));
-    }
-
-    
-#if defined(INT0_PIN) || defined(INT1_PIN)
-    
-    if(((!returnValue.IsButtonReleased || (0 == pressed))   // We handle release but no pending press
-          && ((buttonNumber & 0x80) == 0 )) // or more button changes are detected
-        || (returnValue.ButtonNumber == 0) )    // safety in case interrupt and data mismatch or code bug
-    {
-      // No more button notification pending
-      g_prop.HasPendingInterrupt = false;
-    }
-    else
-    {
-      DEBUG_BUTTON16(Serial.println("not Clearing interrupt"));
-    }
-
-    g_prop.IgnoreNextEvent = digitalRead(g_prop.SdoPin) == LOW; // If the pin is still low at the end of reading, ignore next event which is for data finished raise
-    DEBUG_BUTTON16(Serial.print(g_prop.IgnoreNextEvent ? "Ignoring next event\n\r" : "Not ignoring\n\r"));
-    
-    // All the data has been read. Now reactivate the interrupt
-    SetInterruptHandler();
-#endif
-    
-    DEBUG_BUTTON16(Serial.print("currValue : "));
-    DEBUG_BUTTON16(Serial.println(currValue));
-    DEBUG_BUTTON16(Serial.print("Changes    : "));
-    DEBUG_BUTTON16(Serial.println(changes));
-    DEBUG_BUTTON16(Serial.print("Button N   : "));
-    DEBUG_BUTTON16(Serial.println(buttonNumber));
-    DEBUG_BUTTON16(Serial.print("Unhandled  : "));
-    DEBUG_BUTTON16(Serial.println(g_prop.UnhandledButtonPresses));
-    DEBUG_BUTTON16(Serial.print("ButtonRelease : "));
-    DEBUG_BUTTON16(Serial.println(returnValue.IsButtonReleased));
-    DEBUG_BUTTON16(Serial.print("buttonNumber : "));
-    DEBUG_BUTTON16(Serial.println(buttonNumber));
-    DEBUG_BUTTON16(Serial.print("Pending interrupts :"));
-    DEBUG_BUTTON16(Serial.println(g_prop.HasPendingInterrupt));
-    
+    }   
     return returnValue;
   }
-  
-#if defined(INT0_PIN) || defined(INT1_PIN)
-  static bool HasEvent()
-  {
-#if defined(INT0_PIN)
-    if( INT0_PIN == g_prop.SdoPin )
-    {
-      return g_prop.HasPendingInterrupt;
-    }
-#endif
-
-#if defined(INT1_PIN)
-    if( INT1_PIN == g_prop.SdoPin )
-    {
-      return g_prop.HasPendingInterrupt;
-    }
-#endif
-    
-    return true;
-  }
-#endif
-
 };
 
 
@@ -416,33 +239,26 @@ void TestStatus(CTtP229TouchButton touch)
 
 int TestEvent(CTtP229TouchButton touch, bool* status)
 {
-#if defined(INT0_PIN) || defined(INT1_PIN)
-  if( touch.HasEvent())
-#endif
+
   {
     CTtp229ButtonEvent buttonEvent = touch.GetButtonEvent();
     
     if( 0 != buttonEvent.ButtonNumber )
     {
+      //Serial.println("!EWFETYWEEFGHEJZ");
       if( buttonEvent.IsButtonReleased )
       {
         DEBUG_STATUS(Serial.print("Button Released: "));
         DEBUG_STATUS(Serial.println(buttonEvent.ButtonNumber));
-	status[buttonEvent.ButtonNumber]=false;
+	      status[buttonEvent.ButtonNumber]=false;
       }
       else
       {
         DEBUG_STATUS(Serial.print("Button Pressed : "));
         DEBUG_STATUS(Serial.println(buttonEvent.ButtonNumber));
-	status[buttonEvent.ButtonNumber]=true;
+	      status[buttonEvent.ButtonNumber]=true;
       }
       //DEBUG_STATUS(Serial.println(buttonEvent.ButtonNumber));
-    }
-    else
-    {
-#if defined(INT0_PIN) || defined(INT1_PIN)
-        DEBUG_STATUS(Serial.println("Are you not using interrupt? Should never come here for interrupt based system."));
-#endif
     }
     
     //Serial.print("CurrentTime : "); Serial.println(millis());
