@@ -13,7 +13,7 @@ void setup()
 {
   Serial.begin(115200);
  
-  Serial.println("Third Board A2-B3 EMG");
+  Serial.println("Third Board A2-B3");
   
 }
 void loop()
@@ -43,7 +43,7 @@ void loop()
   
   printpressed(SIGNALS);
   //TODO: pass by USB
-  delay(25);
+  delay(250);
 }
 void printpressed(bool* sig){
   for(int i=0;i<95;i++){
