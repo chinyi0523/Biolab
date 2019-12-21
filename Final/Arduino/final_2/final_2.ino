@@ -37,8 +37,8 @@ void loop()
   
   bool SIGNALS[95]={false};
   for(int i=2;i<=13;i++){
-    int released = digitalRead(i);
-    if(released==0){
+    int pressed = digitalRead(i);
+    if(pressed==1){
       SIGNALS[19+i] = true;
     }  
   }
@@ -65,5 +65,5 @@ void loop()
   
 
   //TODO: pass by USB
-  delay(2000);
+  delay(25);
 }

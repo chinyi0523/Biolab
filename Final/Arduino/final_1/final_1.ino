@@ -14,6 +14,7 @@ int prev[5] = {0,0,0,0,0}; //right_hand_status_last_iter
 int now[5] = {0,0,0,0,0};  //right_hand_status_current_iter
 int strength[5] = {0,0,0,0,0}; //difference
 bool _1pressed[17] = {false}; //right_hand_first_16
+//bool dimension[3]={false};
 
 //CTtP229TouchButton touchr1;
 
@@ -47,7 +48,12 @@ void loop()
   
   ////
   printTouchStatus(1,_1pressed);
- 
+  bool dimension[3]= {false}; 
+
+  if(_1pressed[1]||_1pressed[2]||_1pressed[6]||_1pressed[5]) dimension[3]=true;
+  if(_1pressed[3]||_1pressed[4]||_1pressed[7]||_1pressed[8]) dimension[0]=true;
+  if(_1pressed[9]||_1pressed[10]||_1pressed[13]||_1pressed[14]) dimension[2]=true;
+  if(_1pressed[11]||_1pressed[12]||_1pressed[15]||_1pressed[16]) dimension[1]=true;
   ////
   //
   //Serial.println("  --Start--ECG--");
@@ -72,10 +78,23 @@ void loop()
   //00    RESERVED
   ///////////////////////////
   bool SIGNALS[95]={false};
-  analyze(SIGNALS);
+  for(int i=0;i<5;i++){
+    if(strength[i]>0){
+      SIGNALS[64+5*i+strength[i]]=true;
+    }
+  }
+  for(int i=1;i<5;i++){
+    SIGNALS[i]=dimension[i-1];  
+  }
+  SIGNALS[5]=dimension[1]&&dimension[2];
+  SIGNALS[6]=dimension[1]&&dimension[3];
+  SIGNALS[7]=dimension[1]&&dimension[4];
+  SIGNALS[8]=dimension[2]&&dimension[3];
+  SIGNALS[9]=dimension[2]&&dimension[4];
+  SIGNALS[10]=dimension[3]&&dimension[4];
   //if(ECG>900) SIGNALS[94]=true;
   //TODO: pass by USB
-  delay(2000);
+  delay(25);
   for(int i=0;i<5;i++){
     prev[i]=now[i];
     now[i]=0;
@@ -96,16 +115,4 @@ void printTouchStatus(int num,bool* save)
     
   }
   Serial.println(" |");
-}
-void analyze(bool *Signal){
-  //1-64
-  for(int i=1;i<=16;i++){
-    Signal[i] = _1pressed[i];
-  }
-  //65-89
-  for(int i=0;i<5;i++){
-    if(strength[i]>0){
-      Signal[64+5*i+strength[i]]=true;
-    }
-  }
 }

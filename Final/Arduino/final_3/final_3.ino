@@ -20,8 +20,8 @@ void loop()
 {
   bool SIGNALS[95]={false};
   for(int i=2;i<=10;i++){
-    int released = digitalRead(i);
-    if(released==0){
+    int pressed = digitalRead(i);
+    if(pressed==1){
       SIGNALS[31+i] = true;
     }  
   }
@@ -41,7 +41,27 @@ void loop()
   //00    RESERVED
   ///////////////////////////
   
-
+  printpressed(SIGNALS);
   //TODO: pass by USB
-  delay(2000);
+  delay(25);
+}
+void printpressed(bool* sig){
+  for(int i=0;i<95;i++){
+    if(sig[i]){
+      printnote(i);
+      Serial.print(" ");
+    }
+  }
+  Serial.println();
+}
+void printnote(int i){
+  if(i==33) Serial.print("La  Middle");
+  if(i==34) Serial.print("Si  Middle");
+  if(i==35) Serial.print("Do  High  ");
+  if(i==36) Serial.print("Re  High  ");
+  if(i==37) Serial.print("Mi  High  ");
+  if(i==38) Serial.print("Fa  High  ");
+  if(i==39) Serial.print("Sol High  ");
+  if(i==40) Serial.print("La  High  ");
+  if(i==41) Serial.print("Si  High  ");
 }
