@@ -6,7 +6,7 @@
   #define DEBUG_BUTTON16(a)
 #endif
 
-#if 1
+#if 0
   #define DEBUG_STATUS(a) (a)
 #else
   #define DEBUG_STATUS(a)
