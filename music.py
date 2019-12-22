@@ -15,7 +15,9 @@ class Serial(object):
         coeff = dict(enumerate(json.load(open("coeff.json"))))
         avg_freq = self.repeat(avg_freq, coeff)
         time_wav = np.fft.irfft(avg_freq)[2400:-2400]
-        return time_wav / np.max(time_wav).item()
+        rate = (1/2)**(1/4000)
+        dcy = rate ** np.arange(len(time_wav))
+        return time_wav / np.max(time_wav).item() * dcy
 
     @staticmethod
     def fft(
@@ -29,6 +31,7 @@ class Serial(object):
             abs_fft_list.append(abs(to_fft))
             ang_fft_list.append(ang_fft)
         abs_fft = sum(abs_fft_list) / len(abs_fft_list)
+        abs_fft[:1] = 0
         ang_fft = sum(ang_fft_list) / len(ang_fft_list)
         return abs_fft * np.exp(1j * ang_fft)
 
