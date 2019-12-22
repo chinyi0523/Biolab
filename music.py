@@ -31,7 +31,7 @@ class Serial(object):
             abs_fft_list.append(abs(to_fft))
             ang_fft_list.append(ang_fft)
         abs_fft = sum(abs_fft_list) / len(abs_fft_list)
-        abs_fft[:1] = 0
+        abs_fft[:20] = 0
         ang_fft = sum(ang_fft_list) / len(ang_fft_list)
         return abs_fft * np.exp(1j * ang_fft)
 
