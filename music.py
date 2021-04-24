@@ -15,7 +15,7 @@ class Serial(object):
         coeff = dict(enumerate(json.load(open("coeff.json"))))
         avg_freq = self.repeat(avg_freq, coeff)
         time_wav = np.fft.irfft(avg_freq)[2400:-2400]
-        rate = (1/2)**(1/4000)
+        rate = (1 / 2) ** (1 / 4000)
         dcy = rate ** np.arange(len(time_wav))
         return time_wav / np.max(time_wav).item() * dcy
 
